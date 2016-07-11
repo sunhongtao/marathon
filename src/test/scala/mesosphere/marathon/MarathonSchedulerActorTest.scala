@@ -12,6 +12,7 @@ import mesosphere.marathon.core.launcher.impl.LaunchQueueTestHelper
 import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.core.readiness.ReadinessCheckExecutor
 import mesosphere.marathon.core.task.Task
+import mesosphere.marathon.core.task.termination.TaskKillService
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.event._
 import mesosphere.marathon.core.history.impl.HistoryActor
@@ -75,6 +76,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
       expectMsg(5.seconds, TasksReconciled)
 
       awaitAssert({
+        // TODO: this shouldn't invoke the driver directly
         verify(driver).killTask(TaskID("task_a"))
       }, 5.seconds, 10.millis)
     } finally {
@@ -154,7 +156,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
       version = app.version.toString
     )
 
-    when(driver.killTask(taskA.taskId.mesosTaskId)).thenAnswer(new Answer[Status] {
+    when(killService.kill(taskA)).thenAnswer(new Answer[Status] {
       def answer(invocation: InvocationOnMock): Status = {
         system.eventStream.publish(statusUpdateEvent)
         Status.DRIVER_RUNNING
@@ -164,7 +166,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
     val schedulerActor = createActor()
     try {
       schedulerActor ! LocalLeadershipEvent.ElectedAsLeader
-      schedulerActor ! KillTasks(app.id, Set(taskA.taskId))
+      schedulerActor ! KillTasks(app.id, Set(taskA))
 
       expectMsg(5.seconds, TasksKilled(app.id, Set(taskA.taskId)))
 
@@ -199,7 +201,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
       timestamp = app.version.toString
     )
 
-    when(driver.killTask(taskA.taskId.mesosTaskId)).thenAnswer(new Answer[Status] {
+    when(killService.kill(taskA)).thenAnswer(new Answer[Status] {
       def answer(invocation: InvocationOnMock): Status = {
         system.eventStream.publish(statusUpdateEvent)
         Status.DRIVER_RUNNING
@@ -209,7 +211,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
     val schedulerActor = createActor()
     try {
       schedulerActor ! LocalLeadershipEvent.ElectedAsLeader
-      schedulerActor ! KillTasks(app.id, Set(taskA.taskId))
+      schedulerActor ! KillTasks(app.id, Set(taskA))
 
       expectMsg(5.seconds, TasksKilled(app.id, Set(taskA.taskId)))
 
@@ -275,7 +277,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
     when(taskTracker.appTasksLaunchedSync(app.id)).thenReturn(Iterable(taskA))
     when(taskTracker.appTasks(eq(app.id))(any[ExecutionContext])).thenReturn(Future.successful(Iterable(taskA)))
 
-    when(driver.killTask(taskA.taskId.mesosTaskId)).thenAnswer(new Answer[Status] {
+    when(killService.kill(taskA)).thenAnswer(new Answer[Status] {
       def answer(invocation: InvocationOnMock): Status = {
         system.eventStream.publish(
           MesosStatusUpdateEvent(
@@ -369,6 +371,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
         deploymentRepo,
         hcManager,
         taskTracker,
+        killService,
         queue,
         holder,
         electionService,
@@ -437,6 +440,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
         deploymentRepo,
         hcManager,
         taskTracker,
+        killService,
         queue,
         holder,
         electionService,
@@ -513,6 +517,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
   var deploymentRepo: DeploymentRepository = _
   var hcManager: HealthCheckManager = _
   var taskTracker: TaskTracker = _
+  var killService: TaskKillService = _
   var queue: LaunchQueue = _
   var frameworkIdUtil: FrameworkIdUtil = _
   var driver: SchedulerDriver = _
@@ -532,6 +537,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
     driver = mock[SchedulerDriver]
     holder = new MarathonSchedulerDriverHolder
     holder.driver = Some(driver)
+    killService = mock[TaskKillService]
     repo = mock[AppRepository]
     groupRepo = mock[GroupRepository]
     deploymentRepo = mock[DeploymentRepository]
@@ -548,6 +554,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
     deploymentManagerProps = schedulerActions => Props(new DeploymentManager(
       repo,
       taskTracker,
+      killService,
       queue,
       schedulerActions,
       storage,
@@ -586,6 +593,7 @@ class MarathonSchedulerActorTest extends MarathonActorSupport
         deploymentRepo,
         hcManager,
         taskTracker,
+        killService,
         queue,
         holder,
         electionService,
