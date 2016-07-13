@@ -16,7 +16,7 @@ import org.apache.mesos.Protos.TaskID
 import org.apache.mesos.SchedulerDriver
 import org.slf4j.LoggerFactory
 
-import scala.collection.{SortedSet, mutable}
+import scala.collection.{ SortedSet, mutable }
 import scala.concurrent.Promise
 
 class TaskReplaceActor(
