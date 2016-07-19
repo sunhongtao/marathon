@@ -2,7 +2,6 @@ package mesosphere.marathon.core.health.impl
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Cancellable, Props }
 import akka.event.EventStream
-import mesosphere.marathon.MarathonSchedulerDriverHolder
 import mesosphere.marathon.Protos.HealthCheckDefinition.Protocol
 import mesosphere.marathon.core.event._
 import mesosphere.marathon.core.health.impl.HealthCheckActor._
@@ -11,10 +10,11 @@ import mesosphere.marathon.core.task.bus.MesosTaskStatus.TemporarilyUnreachable
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.health._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
+import mesosphere.marathon.core.task.termination.TaskKillService
 
 private[health] class HealthCheckActor(
     app: AppDefinition,
-    marathonSchedulerDriverHolder: MarathonSchedulerDriverHolder,
+    killService: TaskKillService,
     healthCheck: HealthCheck,
     taskTracker: TaskTracker,
     eventBus: EventStream) extends Actor with ActorLogging {
@@ -114,21 +114,19 @@ private[health] class HealthCheckActor(
           val id = task.taskId
           log.warning(s"Task $id on host ${task.agentInfo.host} is temporarily unreachable. Performing no kill.")
         case _ =>
-          marathonSchedulerDriverHolder.driver.foreach { driver =>
-            log.warning(s"Send kill request for ${task.taskId} on host ${task.agentInfo.host} to driver")
-            eventBus.publish(
-              UnhealthyTaskKillEvent(
-                appId = task.runSpecId,
-                taskId = task.taskId,
-                version = app.version,
-                reason = health.lastFailureCause.getOrElse("unknown"),
-                host = task.agentInfo.host,
-                slaveId = task.agentInfo.agentId,
-                timestamp = health.lastFailure.getOrElse(Timestamp.now()).toString
-              )
+          log.warning(s"Send kill request for ${task.taskId} on host ${task.agentInfo.host} to driver")
+          eventBus.publish(
+            UnhealthyTaskKillEvent(
+              appId = task.runSpecId,
+              taskId = task.taskId,
+              version = app.version,
+              reason = health.lastFailureCause.getOrElse("unknown"),
+              host = task.agentInfo.host,
+              slaveId = task.agentInfo.agentId,
+              timestamp = health.lastFailure.getOrElse(Timestamp.now()).toString
             )
-            driver.killTask(task.taskId.mesosTaskId)
-          }
+          )
+          killService.kill(task)
       }
     }
   }
@@ -203,14 +201,14 @@ private[health] class HealthCheckActor(
 object HealthCheckActor {
   def props(
     app: AppDefinition,
-    marathonSchedulerDriverHolder: MarathonSchedulerDriverHolder,
+    killService: TaskKillService,
     healthCheck: HealthCheck,
     taskTracker: TaskTracker,
     eventBus: EventStream): Props = {
 
     Props(new HealthCheckActor(
       app,
-      marathonSchedulerDriverHolder,
+      killService,
       healthCheck,
       taskTracker,
       eventBus))

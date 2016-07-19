@@ -180,7 +180,7 @@ class CoreModuleImpl @Inject() (
   // HEALTH CHECKS
 
   override lazy val healthModule: HealthModule = new HealthModule(
-    actorSystem, marathonSchedulerDriverHolder, eventStream, taskTrackerModule.taskTracker, appRepository, marathonConf)
+    actorSystem, taskTerminationModule.taskKillService, eventStream, taskTrackerModule.taskTracker, appRepository, marathonConf)
 
   // GROUP MANAGER
 
@@ -208,7 +208,7 @@ class CoreModuleImpl @Inject() (
   taskJobsModule.handleOverdueTasks(
     taskTrackerModule.taskTracker,
     taskTrackerModule.taskReservationTimeoutHandler,
-    marathonSchedulerDriverHolder
+    taskTerminationModule.taskKillService
   )
   taskJobsModule.expungeOverdueLostTasks(taskTrackerModule.taskTracker, taskTrackerModule.stateOpProcessor)
   maybeOfferReviver
