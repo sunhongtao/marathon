@@ -1,5 +1,6 @@
 package mesosphere.marathon.core.task.termination.impl
 
+import akka.Done
 import akka.actor.ActorRef
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.Task.Id
@@ -10,13 +11,13 @@ import scala.concurrent.{ Future, Promise }
 private[termination] class TaskKillServiceDelegate(actorRef: ActorRef) extends TaskKillService {
   import TaskKillServiceActor._
 
-  override def kill(tasks: Iterable[Task]): Future[Unit] = {
-    val promise = Promise[Unit]
+  override def killTasks(tasks: Iterable[Task]): Future[Done] = {
+    val promise = Promise[Done]
     actorRef ! KillTasks(tasks, promise)
     promise.future
   }
 
-  override def kill(taskId: Task.Id): Unit = {
+  override def killTaskById(taskId: Task.Id): Unit = {
     actorRef ! KillTaskById(taskId)
   }
 

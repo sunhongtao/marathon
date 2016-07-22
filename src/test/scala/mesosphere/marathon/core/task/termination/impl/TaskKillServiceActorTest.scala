@@ -1,5 +1,6 @@
 package mesosphere.marathon.core.task.termination.impl
 
+import akka.Done
 import akka.actor.{ ActorRef, ActorSystem }
 import akka.testkit.{ ImplicitSender, TestActorRef, TestKit, TestProbe }
 import mesosphere.marathon.MarathonSchedulerDriverHolder
@@ -113,7 +114,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     val stagingTask = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_STAGING)
 
     When("the service is asked to kill those tasks")
-    val promise = Promise[Unit]()
+    val promise = Promise[Done]()
     actor ! TaskKillServiceActor.KillTasks(Seq(runningTask, lostTask, stagingTask), promise)
 
     Then("the task tracker is not queried")
@@ -132,7 +133,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
 
     Then("the promise is eventually completed successfully")
     eventually(promise.isCompleted)
-    promise.future.futureValue should be (())
+    promise.future.futureValue should be (Done)
   }
 
   test("kill multiple tasks at once (empty list)") {
@@ -143,12 +144,12 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     val emptyList = Seq.empty[Task]
 
     When("the service is asked to kill those tasks")
-    val promise = Promise[Unit]()
+    val promise = Promise[Done]()
     actor ! TaskKillServiceActor.KillTasks(emptyList, promise)
 
     Then("the promise is eventually completed successfully")
     eventually(promise.isCompleted)
-    promise.future.futureValue should be (())
+    promise.future.futureValue should be (Done)
 
     And("the task tracker is not queried")
     noMoreInteractions(f.taskTracker)
@@ -221,7 +222,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     }(collection.breakOut)
 
     When("the service is asked to kill those tasks")
-    val promise = Promise[Unit]()
+    val promise = Promise[Done]()
     actor ! TaskKillServiceActor.KillTasks(tasks.values, promise)
 
     Then("5 kills are issued immediately to the driver")

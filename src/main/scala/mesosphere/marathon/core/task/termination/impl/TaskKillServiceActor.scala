@@ -1,5 +1,6 @@
 package mesosphere.marathon.core.task.termination.impl
 
+import akka.Done
 import akka.actor.{ Actor, ActorLogging, Cancellable, Props }
 import mesosphere.marathon.MarathonSchedulerDriverHolder
 import mesosphere.marathon.core.base.Clock
@@ -84,7 +85,7 @@ private[impl] class TaskKillServiceActor(
     processKills()
   }
 
-  def killTasks(tasks: Iterable[Task], promise: Promise[Unit]): Unit = {
+  def killTasks(tasks: Iterable[Task], promise: Promise[Done]): Unit = {
     log.debug("Adding {} tasks to queue; setting up child actor to track progress", tasks.size)
     context.actorOf(TaskKillProgressActor.props(tasks.map(_.taskId), promise))
     tasks.foreach { task =>
@@ -162,7 +163,7 @@ private[termination] object TaskKillServiceActor {
 
   sealed trait Request
   case class KillTask(task: Task) extends Request
-  case class KillTasks(tasks: Iterable[Task], promise: Promise[Unit]) extends Request
+  case class KillTasks(tasks: Iterable[Task], promise: Promise[Done]) extends Request
   case class KillTaskById(taskId: Task.Id) extends Request
   case class KillUnknownTaskById(taskId: Task.Id) extends Request
 

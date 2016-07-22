@@ -1,10 +1,10 @@
 package mesosphere.marathon.core.task
 
+import akka.Done
 import akka.actor.ActorSystem
+import mesosphere.marathon.core.event.MesosStatusUpdateEvent
 import mesosphere.marathon.core.task.Task.Id
 import mesosphere.marathon.core.task.termination.TaskKillService
-import mesosphere.marathon.core.event.MesosStatusUpdateEvent
-import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -14,18 +14,17 @@ import scala.concurrent.Future
   */
 class TaskKillServiceMock(system: ActorSystem) extends TaskKillService {
 
-  private[this] val log = LoggerFactory.getLogger(getClass)
   var numKilled = 0
   val customStatusUpdates = mutable.Map.empty[Task.Id, MesosStatusUpdateEvent]
   val killed = mutable.Set.empty[Task.Id]
 
-  override def kill(tasks: Iterable[Task]): Future[Unit] = {
+  override def killTasks(tasks: Iterable[Task]): Future[Done] = {
     tasks.foreach { task =>
-      kill(task.taskId)
+      killTaskById(task.taskId)
     }
-    Future.successful(())
+    Future.successful(Done)
   }
-  override def kill(taskId: Task.Id): Unit = {
+  override def killTaskById(taskId: Task.Id): Unit = {
     val appId = taskId.runSpecId
     val update = customStatusUpdates.getOrElse(taskId, MesosStatusUpdateEvent("", taskId, "TASK_KILLED", "", appId, "", None, Nil, "no-version"))
     system.eventStream.publish(update)
@@ -33,8 +32,8 @@ class TaskKillServiceMock(system: ActorSystem) extends TaskKillService {
     killed += taskId
   }
 
-  override def kill(task: Task): Unit = kill(task.taskId)
+  override def kill(task: Task): Unit = killTaskById(task.taskId)
 
-  override def killUnknownTask(taskId: Id): Unit = kill(taskId)
+  override def killUnknownTask(taskId: Id): Unit = killTaskById(taskId)
 }
 

@@ -125,7 +125,7 @@ private class DeploymentActor(
       runningTasks, toKill, killToMeetConstraints, scaleTo)
 
     def killTasksIfNeeded: Future[Unit] = tasksToKill.fold(Future.successful(())) { tasks =>
-      killService.kill(tasks)
+      killService.killTasks(tasks).map(_ => ())
     }
 
     def startTasksIfNeeded: Future[Unit] = tasksToStart.fold(Future.successful(())) { _ =>
@@ -143,7 +143,7 @@ private class DeploymentActor(
   def stopApp(app: AppDefinition): Future[Unit] = {
     val tasks = taskTracker.appTasksLaunchedSync(app.id)
     // TODO: the launch queue is purged in stopApp, but it would make sense to do that before calling kill(tasks)
-    killService.kill(tasks).andThen {
+    killService.killTasks(tasks).map(_ => ()).andThen {
       case Success(_) => scheduler.stopApp(app)
     }
   }

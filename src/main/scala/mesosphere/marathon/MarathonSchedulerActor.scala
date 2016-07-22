@@ -163,7 +163,7 @@ class MarathonSchedulerActor private (
       val origSender = sender()
       withLockFor(appId) {
         val res = async {
-          await(killService.kill(tasks))
+          await(killService.killTasks(tasks))
           val app = await(appRepository.currentVersion(appId))
           app.foreach(schedulerActions.scale(driver, _))
         }
@@ -563,7 +563,7 @@ class SchedulerActions(
         .take(launchedCount - targetCount)
 
       log.warn("Killing tasks {}", toKill.map(_.taskId))
-      killService.kill(toKill)
+      killService.killTasks(toKill)
     } else {
       log.info(s"Already running ${app.instances} instances of ${app.id}. Not scaling.")
     }

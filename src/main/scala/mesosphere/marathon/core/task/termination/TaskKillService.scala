@@ -1,5 +1,6 @@
 package mesosphere.marathon.core.task.termination
 
+import akka.Done
 import mesosphere.marathon.core.task.Task
 
 import scala.concurrent.Future
@@ -9,7 +10,6 @@ import scala.concurrent.Future
   * apply a retry strategy and throttle kill requests to Mesos.
   */
 trait TaskKillService {
-  // TODO: should we favor distinct vs overloaded functions? killTask, killTaskById, killTasks, killUnknownTask?
 
   /**
     * Kill the given tasks and return a future that is completed when all of the tasks
@@ -18,15 +18,15 @@ trait TaskKillService {
     * @param tasks the tasks that shall be killed.
     * @return a future that is completed when all tasks are killed.
     */
-  def kill(tasks: Iterable[Task]): Future[Unit]
+  def killTasks(tasks: Iterable[Task]): Future[Done]
 
   /**
-    * Kill the given task. The implementation should add the task onto a queue that is processed
+    * Kill a task by the given Id. The implementation should add the task onto a queue that is processed
     * short term and will eventually kill the task.
     *
     * @param taskId the id of the task that shall be killed.
     */
-  def kill(taskId: Task.Id): Unit
+  def killTaskById(taskId: Task.Id): Unit
 
   /**
     * Kill the given task. The implementation should add the task onto

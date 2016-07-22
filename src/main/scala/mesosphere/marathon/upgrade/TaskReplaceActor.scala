@@ -112,7 +112,7 @@ class TaskReplaceActor(
       }
 
       outstandingKills += nextOldTask
-      killService.kill(nextOldTask)
+      killService.killTaskById(nextOldTask)
     }
   }
 

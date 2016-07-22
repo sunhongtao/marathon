@@ -1,5 +1,6 @@
 package mesosphere.marathon.core.task.termination.impl
 
+import akka.Done
 import akka.actor.{ Actor, ActorLogging, Props }
 import mesosphere.marathon.KillingTasksFailedException
 import mesosphere.marathon.core.task.Task
@@ -17,7 +18,7 @@ import scala.util.Try
   * @param promise the promise that shall be completed when all tasks have been
   *                reported terminal.
   */
-class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[Unit]) extends Actor with ActorLogging {
+class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[Done]) extends Actor with ActorLogging {
   // TODO: if one of the watched task is reported terminal before this actor subscribed to the event bus,
   //       it won't receive that event. should we reconcile tasks after a certain amount of time?
 
@@ -29,7 +30,7 @@ class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[
       context.system.eventStream.subscribe(self, classOf[MesosStatusUpdateEvent])
       log.info("Starting {} to track kill progress of {} tasks", name, taskIds.size)
     } else {
-      promise.tryComplete(Try(()))
+      promise.tryComplete(Try(Done))
       log.info("premature aborting of {} - no tasks to watch for", name)
       context.stop(self)
     }
@@ -51,7 +52,7 @@ class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[
       taskIds.remove(event.taskId)
       if (taskIds.isEmpty) {
         log.info("All tasks watched by {} are killed, completing promise", name)
-        val success = promise.tryComplete(Try(()))
+        val success = promise.tryComplete(Try(Done))
         if (!success) log.error("Promise has already been completed in {}", name)
         context.stop(self)
       } else {
@@ -63,7 +64,7 @@ class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[
 }
 
 object TaskKillProgressActor {
-  def props(toKill: Iterable[Task.Id], promise: Promise[Unit]): Props = {
+  def props(toKill: Iterable[Task.Id], promise: Promise[Done]): Props = {
     val taskIds = mutable.HashSet[Task.Id](toKill.toVector: _*)
     Props(new TaskKillProgressActor(taskIds, promise))
   }
