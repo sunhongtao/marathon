@@ -6,7 +6,6 @@ import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
 trait TaskKillConfig extends ScallopConf {
-  //scalastyle:off magic.number
 
   private[this] lazy val _killChunkSize = opt[Int](
     "kill_chunk_size",
@@ -14,7 +13,7 @@ trait TaskKillConfig extends ScallopConf {
       "The maximum number of concurrently processed kills",
     noshort = true,
     hidden = true,
-    default = Some(100)
+    default = Some(100) //scalastyle:off magic.number
   )
 
   private[this] lazy val _killRetryTimeout = opt[Long](
@@ -23,7 +22,7 @@ trait TaskKillConfig extends ScallopConf {
       "The timeout after which a task kill will be retried.",
     noshort = true,
     hidden = true,
-    default = Some(10000L) // 10 seconds
+    default = Some(10.seconds.toMillis)
   )
 
   private[this] lazy val _killRetryMax = opt[Int](
@@ -32,7 +31,7 @@ trait TaskKillConfig extends ScallopConf {
       "The maximum number of kill retries before which a task will be forcibly expunged from state.",
     noshort = true,
     hidden = true,
-    default = Some(5)
+    default = Some(5) //scalastyle:off magic.number
   )
 
   def killChunkSize: Int = _killChunkSize()
