@@ -32,7 +32,7 @@ trait TaskKillConfig extends ScallopConf {
       "The maximum number of kill retries before which a task will be forcibly expunged from state.",
     noshort = true,
     hidden = true,
-    default = Some(100)
+    default = Some(5)
   )
 
   def killChunkSize: Int = _killChunkSize()
