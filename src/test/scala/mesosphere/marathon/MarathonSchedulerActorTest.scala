@@ -2,7 +2,7 @@ package mesosphere.marathon
 
 import java.util.concurrent.TimeoutException
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ ActorRef, Props }
 import akka.event.EventStream
 import akka.testkit._
 import akka.util.Timeout
