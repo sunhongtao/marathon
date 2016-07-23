@@ -12,7 +12,12 @@ import scala.util.Try
 
 /**
   * This actor watches over a given set of taskIds and completes a promise when
-  * all tasks have been reported terminal (including LOST et al)
+  * all tasks have been reported terminal (including LOST et al). It also
+  * subscribes to the event bus to listen for interesting mesos task status
+  * updates related to the tasks it watches.
+  *
+  * The actor will stop itself once all watched tasks are terminal; if it is
+  * stopped in any other way the promise will fail.
   *
   * @param ids the taskIds that shall be watched.
   * @param promise the promise that shall be completed when all tasks have been
@@ -42,6 +47,7 @@ private[this] class TaskKillProgressActor(
     context.system.eventStream.unsubscribe(self)
 
     if (!promise.isCompleted) {
+      // we don't expect to be stopped without all tasks being killed, so the promise should fail:
       val msg = s"$name was stopped before all tasks are killed. Outstanding: ${taskIds.mkString(",")}"
       log.error(msg)
       promise.failure(new KillingTasksFailedException(msg))

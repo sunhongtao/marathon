@@ -36,7 +36,6 @@ private[impl] class TaskKillServiceActor(
     context.system.eventStream.subscribe(self, classOf[MesosStatusUpdateEvent])
   }
 
-  //scalastyle:off cyclomatic.complexity
   override def receive: Receive = {
     case KillTaskById(taskId) =>
       killTaskById(taskId)
@@ -56,13 +55,9 @@ private[impl] class TaskKillServiceActor(
     case Retry =>
       retry()
 
-    case unhandled: Request =>
+    case unhandled: InternalRequest =>
       log.warning("Received unhandled {}", unhandled)
-
-    case unexpected: Any =>
-      log.debug("Received unexpected {}", unexpected)
   }
-  //scalastyle:on
 
   def killTaskById(taskId: Task.Id): Unit = {
     log.debug("Received KillTaskById({})", taskId)
@@ -116,7 +111,7 @@ private[impl] class TaskKillServiceActor(
     } else {
       val knownOrNot = if (maybeTask.isDefined) "known" else "unknown"
       log.warning("Killing {} {}", knownOrNot, taskId)
-      driverHolder.driver.map(_.killTask(taskId.mesosTaskId))
+      driverHolder.driver.foreach(_.killTask(taskId.mesosTaskId))
     }
 
     val attempts = inFlight.get(taskId).fold(1)(_.attempts + 1)
@@ -161,7 +156,7 @@ private[impl] class TaskKillServiceActor(
 
 private[termination] object TaskKillServiceActor {
 
-  sealed trait Request
+  sealed trait Request extends InternalRequest
   case class KillTask(task: Task) extends Request
   case class KillTasks(tasks: Iterable[Task], promise: Promise[Done]) extends Request
   case class KillTaskById(taskId: Task.Id) extends Request
