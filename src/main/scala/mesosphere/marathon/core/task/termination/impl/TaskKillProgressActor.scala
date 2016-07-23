@@ -14,16 +14,18 @@ import scala.util.Try
   * This actor watches over a given set of taskIds and completes a promise when
   * all tasks have been reported terminal (including LOST et al)
   *
-  * @param taskIds the taskIds that shall be watched.
+  * @param ids the taskIds that shall be watched.
   * @param promise the promise that shall be completed when all tasks have been
   *                reported terminal.
   */
-class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[Done]) extends Actor with ActorLogging {
+private[this] class TaskKillProgressActor(
+    ids: Iterable[Task.Id], promise: Promise[Done]) extends Actor with ActorLogging {
   // TODO: if one of the watched task is reported terminal before this actor subscribed to the event bus,
   //       it won't receive that event. should we reconcile tasks after a certain amount of time?
 
+  private[this] val taskIds = mutable.HashSet[Task.Id](ids.toVector: _*)
   // this should be used for logging to prevent polluting the logs
-  val name = "TaskKillProgressActor" + self.hashCode()
+  private[this] val name = "TaskKillProgressActor" + self.hashCode()
 
   override def preStart(): Unit = {
     if (taskIds.nonEmpty) {
@@ -58,14 +60,11 @@ class TaskKillProgressActor(taskIds: mutable.HashSet[Task.Id], promise: Promise[
       } else {
         log.info("{} still waiting for {} tasks to be killed", name, taskIds.size)
       }
-
-    case _ => // ignore
   }
 }
 
-object TaskKillProgressActor {
+private[impl] object TaskKillProgressActor {
   def props(toKill: Iterable[Task.Id], promise: Promise[Done]): Props = {
-    val taskIds = mutable.HashSet[Task.Id](toKill.toVector: _*)
-    Props(new TaskKillProgressActor(taskIds, promise))
+    Props(new TaskKillProgressActor(toKill, promise))
   }
 }
