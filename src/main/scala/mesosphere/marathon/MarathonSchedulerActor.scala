@@ -11,7 +11,7 @@ import mesosphere.marathon.core.election.{ ElectionService, LocalLeadershipEvent
 import mesosphere.marathon.core.event.{ AppTerminatedEvent, DeploymentFailed, DeploymentSuccess }
 import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.core.task.Task
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.health.HealthCheckManager
 import mesosphere.marathon.state._
@@ -163,7 +163,7 @@ class MarathonSchedulerActor private (
       val origSender = sender()
       withLockFor(appId) {
         val res = async {
-          await(killService.killTasks(tasks))
+          await(killService.killTasks(tasks, TaskKillReason.KillingTasksViaApi))
           val app = await(appRepository.currentVersion(appId))
           app.foreach(schedulerActions.scale(driver, _))
         }
@@ -448,7 +448,7 @@ class SchedulerActions(
       tasks.foreach { task =>
         if (task.launchedMesosId.isDefined) {
           log.warn("Killing {}", task.taskId)
-          killService.kill(task)
+          killService.kill(task, TaskKillReason.DeletingApp)
         }
       }
       tasks.flatMap(_.launchedMesosId).foreach { taskId =>
@@ -492,7 +492,7 @@ class SchedulerActions(
           )
           tasksByApp.appTasks(unknownAppId).foreach { orphanTask =>
             log.info(s"Killing ${orphanTask.taskId}")
-            killService.kill(orphanTask)
+            killService.kill(orphanTask, TaskKillReason.Orphaned)
           }
         }
 
@@ -563,7 +563,7 @@ class SchedulerActions(
         .take(launchedCount - targetCount)
 
       log.warn("Killing tasks {}", toKill.map(_.taskId))
-      killService.killTasks(toKill)
+      killService.killTasks(toKill, TaskKillReason.ScalingApp)
     } else {
       log.info(s"Already running ${app.instances} instances of ${app.id}. Not scaling.")
     }

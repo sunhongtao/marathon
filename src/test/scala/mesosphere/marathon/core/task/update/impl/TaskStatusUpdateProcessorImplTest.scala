@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.task.bus.{ MarathonTaskStatus, TaskStatusUpdateTestHelper }
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.{ TaskStateOpProcessor, TaskTracker }
 import mesosphere.marathon.core.task.{ Task, TaskStateChange, TaskStateOp }
 import mesosphere.marathon.metrics.Metrics
@@ -73,7 +73,7 @@ class TaskStatusUpdateProcessorImplTest
     verify(f.taskTracker).task(taskId)
 
     And("the task kill gets initiated")
-    verify(f.killService).killUnknownTask(taskId)
+    verify(f.killService).killUnknownTask(taskId, TaskKillReason.Unknown)
     And("the update has been acknowledged")
     verify(f.schedulerDriver).acknowledgeStatusUpdate(status)
 
@@ -106,7 +106,7 @@ class TaskStatusUpdateProcessorImplTest
     verify(f.taskTracker).task(task.taskId)
 
     And("the task kill gets initiated")
-    verify(f.killService).kill(task)
+    verify(f.killService).kill(task, TaskKillReason.Unknown)
     And("the update has been acknowledged")
     verify(f.schedulerDriver).acknowledgeStatusUpdate(status)
 

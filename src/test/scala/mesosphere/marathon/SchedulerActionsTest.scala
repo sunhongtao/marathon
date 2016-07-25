@@ -4,7 +4,7 @@ import akka.testkit.TestProbe
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.core.launchqueue.LaunchQueue.QueuedTaskInfo
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.task.tracker.TaskTracker.{ AppTasks, TasksByApp }
@@ -102,7 +102,7 @@ class SchedulerActionsTest
 
     f.scheduler.reconcileTasks(f.driver).futureValue(5.seconds)
 
-    verify(f.killService, times(1)).kill(orphanedTask)
+    verify(f.killService, times(1)).kill(orphanedTask, TaskKillReason.Orphaned)
   }
 
   test("Scale up correctly in case of lost tasks (active queue)") {
@@ -184,7 +184,7 @@ class SchedulerActionsTest
     verify(f.queue, times(1)).purge(app.id)
 
     And("the youngest STAGED tasks are killed")
-    verify(f.killService).killTasks(List(staged_3, staged_2))
+    verify(f.killService).killTasks(List(staged_3, staged_2), TaskKillReason.ScalingApp)
     verifyNoMoreInteractions(f.driver)
     verifyNoMoreInteractions(f.killService)
   }
@@ -219,7 +219,7 @@ class SchedulerActionsTest
     verify(f.queue, times(1)).purge(app.id)
 
     And("the youngest RUNNING tasks are killed")
-    verify(f.killService).killTasks(List(running_7, running_6))
+    verify(f.killService).killTasks(List(running_7, running_6), TaskKillReason.ScalingApp)
     verifyNoMoreInteractions(f.driver)
     verifyNoMoreInteractions(f.killService)
   }
@@ -261,7 +261,7 @@ class SchedulerActionsTest
     verify(f.queue, times(1)).purge(app.id)
 
     And("all STAGED tasks plus the youngest RUNNING tasks are killed")
-    verify(f.killService).killTasks(List(staged_1, running_4))
+    verify(f.killService).killTasks(List(staged_1, running_4), TaskKillReason.ScalingApp)
     verifyNoMoreInteractions(f.driver)
     verifyNoMoreInteractions(f.killService)
   }

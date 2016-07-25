@@ -7,7 +7,7 @@ import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.core.readiness.ReadinessCheckExecutor
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.Task.Id
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.event.{ DeploymentStatus, HealthStatusChanged, MesosStatusUpdateEvent }
 import mesosphere.marathon.state.AppDefinition
@@ -112,7 +112,7 @@ class TaskReplaceActor(
       }
 
       outstandingKills += nextOldTask
-      killService.killTaskById(nextOldTask)
+      killService.killTaskById(nextOldTask, TaskKillReason.Upgrading)
     }
   }
 

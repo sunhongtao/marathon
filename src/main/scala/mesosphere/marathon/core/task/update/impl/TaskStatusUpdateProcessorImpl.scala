@@ -6,7 +6,7 @@ import com.google.inject.name.Names
 import mesosphere.marathon.MarathonSchedulerDriverHolder
 import mesosphere.marathon.core.base.Clock
 import mesosphere.marathon.core.task.bus.MarathonTaskStatus
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.{ TaskStateOpProcessor, TaskTracker }
 import mesosphere.marathon.core.task.update.TaskStatusUpdateProcessor
 import mesosphere.marathon.core.task.{ Task, TaskStateOp }
@@ -53,7 +53,7 @@ class TaskStatusUpdateProcessorImpl @Inject() (
       case None if killWhenUnknown(status) =>
         killUnknownTaskTimer {
           log.warn("Kill unknown {}", taskId)
-          killService.killUnknownTask(taskId)
+          killService.killUnknownTask(taskId, TaskKillReason.Unknown)
           acknowledge(status)
         }
 

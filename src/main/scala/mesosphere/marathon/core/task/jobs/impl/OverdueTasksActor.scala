@@ -2,7 +2,7 @@ package mesosphere.marathon.core.task.jobs.impl
 
 import akka.actor._
 import mesosphere.marathon.core.base.Clock
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.{ Task, TaskStateOp }
 import mesosphere.marathon.core.task.tracker.{ TaskReservationTimeoutHandler, TaskTracker }
 import mesosphere.marathon.state.Timestamp
@@ -53,7 +53,7 @@ private[jobs] object OverdueTasksActor {
     private[this] def killOverdueTasks(now: Timestamp, tasks: Iterable[Task]): Unit = {
       overdueTasks(now, tasks).foreach { overdueTask =>
         log.warn("Killing overdue {}", overdueTask.taskId)
-        killService.kill(overdueTask)
+        killService.kill(overdueTask, TaskKillReason.Overdue)
       }
     }
 

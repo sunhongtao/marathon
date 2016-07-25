@@ -4,7 +4,7 @@ import akka.actor._
 import akka.testkit.TestProbe
 import mesosphere.marathon
 import mesosphere.marathon.core.base.ConstantClock
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.TaskTracker.TasksByApp
 import mesosphere.marathon.core.task.tracker.{ TaskReservationTimeoutHandler, TaskTracker }
 import mesosphere.marathon.core.task.{ Task, TaskStateOp }
@@ -85,7 +85,7 @@ class OverdueTasksActorTest extends MarathonSpec with GivenWhenThen with maratho
 
     Then("the task kill gets initiated")
     verify(taskTracker, Mockito.timeout(1000)).tasksByApp()(any[ExecutionContext])
-    verify(killService, Mockito.timeout(1000)).kill(mockTask)
+    verify(killService, Mockito.timeout(1000)).kill(mockTask, TaskKillReason.Overdue)
   }
 
   // sounds strange, but this is how it currently works: determineOverdueTasks will consider a missing startedAt to
@@ -148,9 +148,9 @@ class OverdueTasksActorTest extends MarathonSpec with GivenWhenThen with maratho
     verify(taskTracker).tasksByApp()(any[ExecutionContext])
 
     And("All somehow overdue tasks are killed")
-    verify(killService).kill(unconfirmedOverdueTask)
-    verify(killService).kill(overdueUnstagedTask)
-    verify(killService).kill(overdueStagedTask)
+    verify(killService).kill(unconfirmedOverdueTask, TaskKillReason.Overdue)
+    verify(killService).kill(overdueUnstagedTask, TaskKillReason.Overdue)
+    verify(killService).kill(overdueStagedTask, TaskKillReason.Overdue)
 
     And("but not more")
     verifyNoMoreInteractions(driver)

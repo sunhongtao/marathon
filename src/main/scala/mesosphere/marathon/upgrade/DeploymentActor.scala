@@ -8,7 +8,7 @@ import mesosphere.marathon.SchedulerActions
 import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.core.readiness.ReadinessCheckExecutor
 import mesosphere.marathon.core.task.Task
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.event.{ DeploymentStatus, DeploymentStepFailure, DeploymentStepSuccess }
 import mesosphere.marathon.core.health.HealthCheckManager
@@ -125,7 +125,7 @@ private class DeploymentActor(
       runningTasks, toKill, killToMeetConstraints, scaleTo)
 
     def killTasksIfNeeded: Future[Unit] = tasksToKill.fold(Future.successful(())) { tasks =>
-      killService.killTasks(tasks).map(_ => ())
+      killService.killTasks(tasks, TaskKillReason.ScalingApp).map(_ => ())
     }
 
     def startTasksIfNeeded: Future[Unit] = tasksToStart.fold(Future.successful(())) { _ =>
@@ -143,7 +143,7 @@ private class DeploymentActor(
   def stopApp(app: AppDefinition): Future[Unit] = {
     val tasks = taskTracker.appTasksLaunchedSync(app.id)
     // TODO: the launch queue is purged in stopApp, but it would make sense to do that before calling kill(tasks)
-    killService.killTasks(tasks).map(_ => ()).andThen {
+    killService.killTasks(tasks, TaskKillReason.DeletingApp).map(_ => ()).andThen {
       case Success(_) => scheduler.stopApp(app)
     }
   }

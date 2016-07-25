@@ -10,7 +10,7 @@ import mesosphere.marathon.core.task.bus.MesosTaskStatus.TemporarilyUnreachable
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.health._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
-import mesosphere.marathon.core.task.termination.TaskKillService
+import mesosphere.marathon.core.task.termination.{ TaskKillReason, TaskKillService }
 
 private[health] class HealthCheckActor(
     app: AppDefinition,
@@ -126,7 +126,7 @@ private[health] class HealthCheckActor(
               timestamp = health.lastFailure.getOrElse(Timestamp.now()).toString
             )
           )
-          killService.kill(task)
+          killService.kill(task, TaskKillReason.FailedHealthChecks)
       }
     }
   }
