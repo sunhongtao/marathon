@@ -447,7 +447,7 @@ class SchedulerActions(
     taskTracker.appTasks(app.id).map { tasks =>
       tasks.foreach { task =>
         if (task.launchedMesosId.isDefined) {
-          log.warn("Killing {}", task.taskId)
+          log.info("Killing {}", task.taskId)
           killService.kill(task, TaskKillReason.DeletingApp)
         }
       }
@@ -562,7 +562,7 @@ class SchedulerActions(
         .sortWith(sortByStateAndTime)
         .take(launchedCount - targetCount)
 
-      log.warn("Killing tasks {}", toKill.map(_.taskId))
+      log.info("Killing tasks {}", toKill.map(_.taskId))
       killService.killTasks(toKill, TaskKillReason.ScalingApp)
     } else {
       log.info(s"Already running ${app.instances} instances of ${app.id}. Not scaling.")

@@ -114,7 +114,7 @@ private[health] class HealthCheckActor(
           val id = task.taskId
           log.warning(s"Task $id on host ${task.agentInfo.host} is temporarily unreachable. Performing no kill.")
         case _ =>
-          log.warning(s"Send kill request for ${task.taskId} on host ${task.agentInfo.host} to driver")
+          log.info(s"Send kill request for ${task.taskId} on host ${task.agentInfo.host} to driver")
           eventBus.publish(
             UnhealthyTaskKillEvent(
               appId = task.runSpecId,
