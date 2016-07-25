@@ -41,10 +41,18 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     val task = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_RUNNING)
 
     When("the service is asked to kill that task")
-    actor ! TaskKillServiceActor.KillTask(task)
+    val promise = Promise[Done]()
+    actor ! TaskKillServiceActor.KillTasks(Seq(task), promise)
 
     Then("a kill is issued to the driver")
     verify(f.driver, timeout(500)).killTask(task.taskId.mesosTaskId)
+
+    When("a terminal status update is published via the event stream")
+    f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promise is eventually completed successfully")
+    eventually(promise.isCompleted)
+    promise.future.futureValue should be (Done)
   }
 
   test("Kill single known task by ID") {
@@ -56,7 +64,8 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     f.taskTracker.task(task.taskId) returns Future.successful(Some(task))
 
     When("the service is asked to kill that taskId")
-    actor ! TaskKillServiceActor.KillTaskById(task.taskId)
+    val promise = Promise[Done]()
+    actor ! TaskKillServiceActor.KillTaskById(task.taskId, promise)
 
     Then("it will fetch the task from the taskTracker")
     verify(f.taskTracker, timeout(500)).task(eq(task.taskId))
@@ -65,6 +74,13 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     And("a kill is issued to the driver")
     verify(f.driver, timeout(500)).killTask(task.taskId.mesosTaskId)
     noMoreInteractions(f.driver)
+
+    When("a terminal status update is published via the event stream")
+    f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promise is eventually completed successfully")
+    eventually(promise.isCompleted)
+    promise.future.futureValue should be (Done)
   }
 
   test("Kill single unknown task by ID") {
@@ -76,7 +92,8 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     f.taskTracker.task(eq(taskId)) returns Future.successful(None)
 
     When("the service is asked to kill that taskId")
-    actor ! TaskKillServiceActor.KillTaskById(taskId)
+    val promise = Promise[Done]()
+    actor ! TaskKillServiceActor.KillTaskById(taskId, promise)
 
     Then("it will fetch the task from the taskTracker")
     verify(f.taskTracker, timeout(500)).task(eq(taskId))
@@ -85,6 +102,13 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     And("a kill is issued to the driver")
     verify(f.driver, timeout(500)).killTask(taskId.mesosTaskId)
     noMoreInteractions(f.driver)
+
+    When("a terminal status update is published via the event stream")
+    f.publishStatusUpdate(taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promise is eventually completed successfully")
+    eventually(promise.isCompleted)
+    promise.future.futureValue should be (Done)
   }
 
   test("Kill single known LOST task") {
@@ -95,16 +119,24 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     val task = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_LOST)
 
     When("the service is asked to kill that task")
-    actor ! TaskKillServiceActor.KillTask(task)
+    val promise = Promise[Done]()
+    actor ! TaskKillServiceActor.KillTasks(Seq(task), promise)
 
     Then("NO kill is issued to the driver because the task is lost")
     noMoreInteractions(f.driver)
 
     And("the stateOpProcessor receives an expunge")
     verify(f.stateOpProcessor, timeout(500)).process(TaskStateOp.ForceExpunge(task.taskId))
+
+    When("a terminal status update is published via the event stream")
+    f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promise is eventually completed successfully")
+    eventually(promise.isCompleted)
+    promise.future.futureValue should be (Done)
   }
 
-  test("kill multiple tasks at once (with promise)") {
+  test("kill multiple tasks at once") {
     val f = new Fixture
     val actor = f.createTaskKillActor()
 
@@ -127,9 +159,9 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     noMoreInteractions(f.driver)
 
     And("Eventually terminal status updates are published via the event stream")
-    f.publishStatusUpdate(runningTask, mesos.Protos.TaskState.TASK_KILLED)
-    f.publishStatusUpdate(lostTask, mesos.Protos.TaskState.TASK_LOST)
-    f.publishStatusUpdate(stagingTask, mesos.Protos.TaskState.TASK_LOST)
+    f.publishStatusUpdate(runningTask.taskId, mesos.Protos.TaskState.TASK_KILLED)
+    f.publishStatusUpdate(lostTask.taskId, mesos.Protos.TaskState.TASK_LOST)
+    f.publishStatusUpdate(stagingTask.taskId, mesos.Protos.TaskState.TASK_LOST)
 
     Then("the promise is eventually completed successfully")
     eventually(promise.isCompleted)
@@ -158,7 +190,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     noMoreInteractions(f.driver)
   }
 
-  test("kill multiple tasks subsequently (without promise)") {
+  test("kill multiple tasks subsequently") {
     val f = new Fixture
     val actor = f.createTaskKillActor()
 
@@ -167,16 +199,33 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     val task2 = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_RUNNING)
     val task3 = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_RUNNING)
 
+    val promise1 = Promise[Done]()
+    val promise2 = Promise[Done]()
+    val promise3 = Promise[Done]()
+
     When("the service is asked subsequently to kill those tasks")
-    actor ! TaskKillServiceActor.KillTask(task1)
-    actor ! TaskKillServiceActor.KillTask(task2)
-    actor ! TaskKillServiceActor.KillTask(task3)
+    actor ! TaskKillServiceActor.KillTasks(Seq(task1), promise1)
+    actor ! TaskKillServiceActor.KillTasks(Seq(task2), promise2)
+    actor ! TaskKillServiceActor.KillTasks(Seq(task3), promise3)
 
     Then("exactly 3 kills are issued to the driver")
     verify(f.driver, timeout(500)).killTask(task1.taskId.mesosTaskId)
     verify(f.driver, timeout(500)).killTask(task2.taskId.mesosTaskId)
     verify(f.driver, timeout(500)).killTask(task3.taskId.mesosTaskId)
     noMoreInteractions(f.driver)
+
+    And("Eventually terminal status updates are published via the event stream")
+    f.publishStatusUpdate(task1.taskId, mesos.Protos.TaskState.TASK_KILLED)
+    f.publishStatusUpdate(task2.taskId, mesos.Protos.TaskState.TASK_KILLED)
+    f.publishStatusUpdate(task3.taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promises are eventually completed successfully")
+    eventually(promise1.isCompleted)
+    promise1.future.futureValue should be (Done)
+    eventually(promise2.isCompleted)
+    promise2.future.futureValue should be (Done)
+    eventually(promise3.isCompleted)
+    promise3.future.futureValue should be (Done)
   }
 
   test("killing tasks is throttled (single requests)") {
@@ -191,7 +240,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
 
     When("the service is asked to kill those tasks")
     tasks.values.foreach { task =>
-      actor ! TaskKillServiceActor.KillTask(task)
+      actor ! TaskKillServiceActor.KillTasks(Seq(task), Promise[Done]())
     }
 
     Then("5 kills are issued immediately to the driver")
@@ -203,7 +252,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     captor.getAllValues.asScala.foreach { id =>
       val taskId = Task.Id(id)
       tasks.get(taskId).foreach { task =>
-        f.publishStatusUpdate(task, mesos.Protos.TaskState.TASK_KILLED)
+        f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
       }
     }
 
@@ -234,7 +283,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     captor.getAllValues.asScala.foreach { id =>
       val taskId = Task.Id(id)
       tasks.get(taskId).foreach { task =>
-        f.publishStatusUpdate(task, mesos.Protos.TaskState.TASK_KILLED)
+        f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
       }
     }
 
@@ -248,9 +297,10 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
 
     Given("a single, known running task")
     val task = f.mockTask(Task.Id.forRunSpec(f.appId), f.now(), mesos.Protos.TaskState.TASK_RUNNING)
+    val promise = Promise[Done]()
 
     When("the service is asked to kill that task")
-    actor ! TaskKillServiceActor.KillTask(task)
+    actor ! TaskKillServiceActor.KillTasks(Seq(task), promise)
 
     Then("a kill is issued to the driver")
     verify(f.driver, timeout(500)).killTask(task.taskId.mesosTaskId)
@@ -266,6 +316,13 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
 
     Then("the service will eventually expunge the task if it reached the max attempts")
     verify(f.stateOpProcessor, timeout(1000)).process(TaskStateOp.ForceExpunge(task.taskId))
+
+    When("a terminal status update is published via the event stream")
+    f.publishStatusUpdate(task.taskId, mesos.Protos.TaskState.TASK_KILLED)
+
+    Then("the promise is eventually completed successfully")
+    eventually(promise.isCompleted)
+    promise.future.futureValue should be (Done)
   }
 
   override protected def afterAll(): Unit = {
@@ -283,7 +340,7 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
     }
   }
 
-  override implicit def patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(300, Millis)))
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(1000, Millis)))
 
   class Fixture {
     val appId = PathId("/test")
@@ -330,11 +387,11 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
       task
     }
     def now(): Timestamp = Timestamp(0)
-    def publishStatusUpdate(task: Task, state: mesos.Protos.TaskState): Unit = {
-      val appId = task.taskId.runSpecId
+    def publishStatusUpdate(taskId: Task.Id, state: mesos.Protos.TaskState): Unit = {
+      val appId = taskId.runSpecId
       val statusUpdateEvent =
         MesosStatusUpdateEvent(
-          slaveId = "", taskId = task.taskId, taskStatus = state.toString, message = "", appId = appId, host = "",
+          slaveId = "", taskId = taskId, taskStatus = state.toString, message = "", appId = appId, host = "",
           ipAddresses = None, ports = Nil, version = "version"
         )
       system.eventStream.publish(statusUpdateEvent)

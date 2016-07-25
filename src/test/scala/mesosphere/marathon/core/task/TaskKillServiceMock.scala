@@ -24,16 +24,17 @@ class TaskKillServiceMock(system: ActorSystem) extends TaskKillService {
     }
     Future.successful(Done)
   }
-  override def killTaskById(taskId: Task.Id, reason: TaskKillReason): Unit = {
+  override def killTaskById(taskId: Task.Id, reason: TaskKillReason): Future[Done] = {
     val appId = taskId.runSpecId
     val update = customStatusUpdates.getOrElse(taskId, MesosStatusUpdateEvent("", taskId, "TASK_KILLED", "", appId, "", None, Nil, "no-version"))
     system.eventStream.publish(update)
     numKilled += 1
     killed += taskId
+    Future.successful(Done)
   }
 
-  override def kill(task: Task, reason: TaskKillReason): Unit = killTaskById(task.taskId, reason)
+  override def kill(task: Task, reason: TaskKillReason): Future[Done] = killTaskById(task.taskId, reason)
 
-  override def killUnknownTask(taskId: Id, reason: TaskKillReason): Unit = killTaskById(taskId, reason)
+  override def killUnknownTask(taskId: Id, reason: TaskKillReason): Future[Done] = killTaskById(taskId, reason)
 }
 

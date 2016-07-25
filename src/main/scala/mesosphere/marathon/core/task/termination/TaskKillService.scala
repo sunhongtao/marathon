@@ -10,8 +10,6 @@ import scala.concurrent.Future
   * apply a retry strategy and throttle kill requests to Mesos.
   */
 trait TaskKillService {
-  // TODO: return Futures for all functions
-
   /**
     * Kill the given tasks and return a future that is completed when all of the tasks
     * have been reported as terminal.
@@ -30,7 +28,7 @@ trait TaskKillService {
     * @param reason the reason why the task shall be killed.
     */
   // TODO: remove function and only allow killing unknown tasks or Tasks
-  def killTaskById(taskId: Task.Id, reason: TaskKillReason): Unit
+  def killTaskById(taskId: Task.Id, reason: TaskKillReason): Future[Done]
 
   /**
     * Kill the given task. The implementation should add the task onto
@@ -39,7 +37,7 @@ trait TaskKillService {
     * @param task the task that shall be killed.
     * @param reason the reason why the task shall be killed.
     */
-  def kill(task: Task, reason: TaskKillReason): Unit
+  def kill(task: Task, reason: TaskKillReason): Future[Done]
 
   /**
     * Kill the given unknown task by ID and do not try to fetch its state
@@ -48,5 +46,5 @@ trait TaskKillService {
     * @param taskId the id of the task that shall be killed.
     * @param reason the reason why the task shall be killed.
     */
-  def killUnknownTask(taskId: Task.Id, reason: TaskKillReason): Unit
+  def killUnknownTask(taskId: Task.Id, reason: TaskKillReason): Future[Done]
 }

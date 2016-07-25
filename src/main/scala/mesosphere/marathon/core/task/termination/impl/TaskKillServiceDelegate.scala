@@ -20,22 +20,24 @@ private[termination] class TaskKillServiceDelegate(actorRef: ActorRef) extends T
     promise.future
   }
 
-  override def killTaskById(taskId: Task.Id, reason: TaskKillReason): Unit = {
+  override def killTaskById(taskId: Task.Id, reason: TaskKillReason): Future[Done] = {
     log.info(s"Killing 1 task for reason: $reason (id: {})", taskId)
 
-    actorRef ! KillTaskById(taskId)
+    val promise = Promise[Done]
+    actorRef ! KillTaskById(taskId, promise)
+    promise.future
   }
 
-  override def kill(task: Task, reason: TaskKillReason): Unit = {
-    log.info(s"Killing 1 task for reason: $reason (id: {})", task.taskId)
-
-    actorRef ! KillTask(task)
+  override def kill(task: Task, reason: TaskKillReason): Future[Done] = {
+    killTasks(Seq(task), reason)
   }
 
-  override def killUnknownTask(taskId: Task.Id, reason: TaskKillReason): Unit = {
+  override def killUnknownTask(taskId: Task.Id, reason: TaskKillReason): Future[Done] = {
     log.info(s"Killing 1 unknown task for reason: $reason (id: {})", taskId)
 
-    actorRef ! KillUnknownTaskById(taskId)
+    val promise = Promise[Done]
+    actorRef ! KillUnknownTaskById(taskId, promise)
+    promise.future
   }
 }
 

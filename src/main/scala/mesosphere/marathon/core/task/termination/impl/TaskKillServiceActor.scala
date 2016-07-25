@@ -37,14 +37,11 @@ private[impl] class TaskKillServiceActor(
   }
 
   override def receive: Receive = {
-    case KillTaskById(taskId) =>
-      killTaskById(taskId)
+    case KillTaskById(taskId, promise) =>
+      killTaskById(taskId, promise)
 
-    case KillTask(task) =>
-      killTask(task)
-
-    case KillUnknownTaskById(taskId) =>
-      killUnknownTaskById(taskId)
+    case KillUnknownTaskById(taskId, promise) =>
+      killUnknownTaskById(taskId, promise)
 
     case KillTasks(tasks, promise) =>
       killTasks(tasks, promise)
@@ -59,37 +56,36 @@ private[impl] class TaskKillServiceActor(
       log.warning("Received unhandled {}", unhandled)
   }
 
-  def killTaskById(taskId: Task.Id): Unit = {
+  def killTaskById(taskId: Task.Id, promise: Promise[Done]): Unit = {
     log.debug("Received KillTaskById({})", taskId)
     import context.dispatcher
     taskTracker.task(taskId).map {
-      case Some(task) => self ! KillTask(task)
-      case _ => self ! KillUnknownTaskById(taskId)
+      case Some(task) => self ! KillTasks(Seq(task), promise)
+      case _ => self ! KillUnknownTaskById(taskId, promise)
     }
   }
 
-  def killTask(task: Task): Unit = {
-    log.debug("Received KillTask({})", task)
-    tasksToKill.update(task.taskId, Some(task))
-    processKills()
-  }
-
-  def killUnknownTaskById(taskId: Task.Id): Unit = {
+  def killUnknownTaskById(taskId: Task.Id, promise: Promise[Done]): Unit = {
     log.debug("Received KillUnknownTaskById({})", taskId)
+    setupProgressActor(Seq(taskId), promise)
     tasksToKill.update(taskId, None)
     processKills()
   }
 
   def killTasks(tasks: Iterable[Task], promise: Promise[Done]): Unit = {
     log.debug("Adding {} tasks to queue; setting up child actor to track progress", tasks.size)
-    context.actorOf(TaskKillProgressActor.props(tasks.map(_.taskId), promise))
+    setupProgressActor(tasks.map(_.taskId), promise)
     tasks.foreach { task =>
       tasksToKill.update(task.taskId, Some(task))
     }
     processKills()
   }
 
-  private def processKills(): Unit = {
+  def setupProgressActor(taskIds: Iterable[Task.Id], promise: Promise[Done]): Unit = {
+    context.actorOf(TaskKillProgressActor.props(taskIds, promise))
+  }
+
+  def processKills(): Unit = {
     val killCount = config.killChunkSize - inFlight.size
     val toKillNow = tasksToKill.take(killCount)
 
@@ -157,10 +153,9 @@ private[impl] class TaskKillServiceActor(
 private[termination] object TaskKillServiceActor {
 
   sealed trait Request extends InternalRequest
-  case class KillTask(task: Task) extends Request
   case class KillTasks(tasks: Iterable[Task], promise: Promise[Done]) extends Request
-  case class KillTaskById(taskId: Task.Id) extends Request
-  case class KillUnknownTaskById(taskId: Task.Id) extends Request
+  case class KillTaskById(taskId: Task.Id, promise: Promise[Done]) extends Request
+  case class KillUnknownTaskById(taskId: Task.Id, promise: Promise[Done]) extends Request
 
   sealed trait InternalRequest
   case object Retry extends InternalRequest
