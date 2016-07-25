@@ -18,6 +18,17 @@ import scala.concurrent.Promise
   * Lost tasks will simply be expunged from state, while active tasks will be killed
   * via the scheduler driver. There is be a maximum number of kills in flight, and
   * the service will only issue more kills when tasks are reported terminal.
+  *
+  * If a kill is not acknowledged with a terminal status update within a configurable
+  * time window, the kill is retried a configurable number of times. If the maximum
+  * number of retries is exceeded, the task will be expunged from state similar to a
+  * lost task.
+  *
+  * For each kill request, a child [[TaskKillProgressActor]] will be spawned, which
+  * is supposed to watch the progress and complete a given promise when all watched
+  * tasks are reportedly terminal.
+  *
+  * See [[TaskKillConfig]] for configuration options.
   */
 private[impl] class TaskKillServiceActor(
     taskTracker: TaskTracker,
