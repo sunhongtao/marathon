@@ -34,7 +34,7 @@ trait TaskKillConfig extends ScallopConf {
     default = Some(5) //scalastyle:off magic.number
   )
 
-  def killChunkSize: Int = _killChunkSize()
-  def killRetryTimeout: FiniteDuration = _killRetryTimeout().millis
-  def killRetryMax: Int = _killRetryMax()
+  lazy val killChunkSize: Int = _killChunkSize()
+  lazy val killRetryTimeout: FiniteDuration = _killRetryTimeout().millis
+  lazy val killRetryMax: Int = _killRetryMax()
 }

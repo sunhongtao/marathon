@@ -343,6 +343,8 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(1000, Millis)))
 
   class Fixture {
+    import scala.concurrent.duration._
+
     val appId = PathId("/test")
     val taskTracker: TaskTracker = mock[TaskTracker]
     val driver = mock[SchedulerDriver]
@@ -352,16 +354,14 @@ class TaskKillServiceActorTest extends TestKit(ActorSystem("test"))
       holder
     }
     val defaultConfig: TaskKillConfig = new TaskKillConfig {
-      import scala.concurrent.duration._
-      override def killChunkSize: Int = 5
-      override def killRetryTimeout: FiniteDuration = 10.minutes
-      override def killRetryMax: Int = 5
+      override lazy val killChunkSize: Int = 5
+      override lazy val killRetryTimeout: FiniteDuration = 10.minutes
+      override lazy val killRetryMax: Int = 5
     }
     val retryConfig: TaskKillConfig = new TaskKillConfig {
-      import scala.concurrent.duration._
-      override def killChunkSize: Int = 5
-      override def killRetryTimeout: FiniteDuration = 500.millis
-      override def killRetryMax: Int = 1
+      override lazy val killChunkSize: Int = 5
+      override lazy val killRetryTimeout: FiniteDuration = 500.millis
+      override lazy val killRetryMax: Int = 1
     }
     val stateOpProcessor: TaskStateOpProcessor = mock[TaskStateOpProcessor]
     val parent = TestProbe()
